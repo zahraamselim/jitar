@@ -576,12 +576,12 @@ export default class Parser
 
     #parseObjectBinding(tokenList: TokenList): ESObjectBinding
     {
-        const elements = this.#parseBindingElements(tokenList, Scope.CLOSE);
+        const elements = this.#parseBindingElements(tokenList, Scope.CLOSE, true);
 
         return new ESObjectBinding(elements);
     }
 
-    #parseBindingElements(tokenList: TokenList, closeId: string): ESBindingElement[]
+    #parseBindingElements(tokenList: TokenList, closeId: string, isObject = false): ESBindingElement[]
     {
         const elements = [];
 
@@ -607,15 +607,65 @@ export default class Parser
 
                 continue;
             }
+            else if (token.hasValue(Divider.SCOPE))
+            {
+                // A key divider is only read as part of a key
 
+                throw new UnexpectedToken(token.value, token.start);
+            }
+
+            const key = isObject ? this.#parseBindingKey(tokenList) : undefined;
             const binding = this.#parseBinding(tokenList);
             const initializer = this.#parseInitializer(tokenList);
 
-            const element = new ESBindingElement(binding, initializer);
+            const element = new ESBindingElement(binding, initializer, key);
             elements.push(element);
         }
 
         return elements;
+    }
+
+    #parseBindingKey(tokenList: TokenList): string | undefined
+    {
+        const token = tokenList.current;
+
+        if (token.hasValue(List.OPEN))
+        {
+            // Computed key, always followed by a key divider
+
+            const key = this.#parseCollectionToCode(tokenList, List.OPEN, List.CLOSE).generate();
+
+            this.#readKeyDivider(tokenList);
+
+            return key;
+        }
+
+        const next = tokenList.next;
+
+        if (next?.hasValue(Divider.SCOPE))
+        {
+            tokenList.step(); // Read away the key
+
+            this.#readKeyDivider(tokenList);
+
+            return token.value;
+        }
+
+        // No key divider follows (shorthand or rest element)
+
+        return undefined;
+    }
+
+    #readKeyDivider(tokenList: TokenList): void
+    {
+        const token = tokenList.current;
+
+        if (token.hasValue(Divider.SCOPE) === false)
+        {
+            throw new ExpectedToken(Divider.SCOPE, token.start);
+        }
+
+        tokenList.step(); // Read away the key divider
     }
 
     #parseIdentifierBinding(tokenList: TokenList): ESIdentifierBinding

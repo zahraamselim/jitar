@@ -6,11 +6,13 @@ export default class ESBindingElement
 {
     binding: ESBinding;
     initializer: ESStatement | undefined;
+    key?: string;
 
-    constructor(binding: ESBinding, initializer: ESStatement | undefined)
+    constructor(binding: ESBinding, initializer: ESStatement | undefined, key?: string)
     {
         this.binding = binding;
         this.initializer = initializer;
+        this.key = key;
     }
 
     clone(): ESBindingElement
@@ -18,14 +20,15 @@ export default class ESBindingElement
         const binding = this.binding.clone();
         const initializer = this.initializer?.clone();
 
-        return new ESBindingElement(binding, initializer);
+        return new ESBindingElement(binding, initializer, this.key);
     }
 
     toString(): string
     {
+        const key = this.key !== undefined ? `${this.key}:` : '';
         const binding = this.binding.toString();
         const initializer = this.initializer !== undefined ? `=${this.initializer.toString(false)}` : '';
 
-        return `${binding}${initializer}`;
+        return `${key}${binding}${initializer}`;
     }
 }

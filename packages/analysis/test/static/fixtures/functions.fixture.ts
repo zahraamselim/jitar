@@ -17,6 +17,7 @@ export const FUNCTIONS =
     DEFAULT_PARAMETERS: "function name(param1 = 'value1', param2 = true) {}",
     REST_PARAMETERS: "function name(...param1) {}",
     DESTRUCTURING_PARAMETERS: "function name({ param1, param2 }, [ param3, param4 ]) {}",
+    PARAMETER_WITH_KEY: "function name(param1: param2) {}",
     DESTRUCTURING_DEFAULT_PARAMETERS: "function name({ param1 = 'value1', param2 = true }, [ param3 = 'value3', param4 = true ]) {}",
     DESTRUCTURING_REST_PARAMETERS: "function name({ param1, param2 }, [ param3, ...param4 ]) {}",
     SIMPLE_BODY: "function name() { return 'value'; }",

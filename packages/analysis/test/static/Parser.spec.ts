@@ -11,6 +11,8 @@ import {
 } from '../../src/model';
 
 import { Parser } from '../../src/static';
+import ExpectedToken from '../../src/static/errors/ExpectedToken';
+import UnexpectedToken from '../../src/static/errors/UnexpectedToken';
 
 import { VALUES, IMPORTS, EXPORTS, VARIABLES, FUNCTIONS, CLASSES, MODULES, MODULES_STRINGS } from './fixtures';
 
@@ -543,16 +545,122 @@ describe('Parser', () =>
             expect(binding.elements).toHaveLength(2);
 
             const firstElement = binding.elements[0];
+            expect(firstElement.key).toBeUndefined();
             expect(firstElement.binding).toBeInstanceOf(ESIdentifierBinding);
             expect(firstElement.binding.toString()).toEqual('key1');
             expect(firstElement.initializer).toBeUndefined();
 
             const secondElement = binding.elements[1];
             expect(secondElement).toBeInstanceOf(ESBindingElement);
+            expect(secondElement.key).toBeUndefined();
             expect(secondElement.binding).toBeInstanceOf(ESIdentifierBinding);
             expect(secondElement.binding.toString()).toEqual('key2');
             expect(secondElement.initializer).toBeInstanceOf(ESExpression);
             expect(secondElement.initializer?.toString(false)).toEqual('false');
+        });
+
+        it('should parse a declaration that is destructuring an object with renamed keys', () =>
+        {
+            const variable = parser.parseVariable(VARIABLES.DESTRUCTURING_OBJECT_RENAME);
+            expect(variable.identifier).toEqual('{key1:alias1,key2:alias2}');
+            expect(variable.binding).toBeInstanceOf(ESObjectBinding);
+
+            const binding = variable.binding as ESObjectBinding;
+            expect(binding.elements).toHaveLength(2);
+
+            const firstElement = binding.elements[0];
+            expect(firstElement.key).toEqual('key1');
+            expect(firstElement.binding).toBeInstanceOf(ESIdentifierBinding);
+            expect(firstElement.binding.toString()).toEqual('alias1');
+            expect(firstElement.initializer).toBeUndefined();
+
+            const secondElement = binding.elements[1];
+            expect(secondElement.key).toEqual('key2');
+            expect(secondElement.binding).toBeInstanceOf(ESIdentifierBinding);
+            expect(secondElement.binding.toString()).toEqual('alias2');
+            expect(secondElement.initializer).toBeUndefined();
+        });
+
+        it('should parse a declaration that is destructuring an object with nested keys', () =>
+        {
+            const variable = parser.parseVariable(VARIABLES.DESTRUCTURING_OBJECT_NESTED);
+            expect(variable.identifier).toEqual('{key1:{key2,key3:alias3}}');
+            expect(variable.binding).toBeInstanceOf(ESObjectBinding);
+
+            const binding = variable.binding as ESObjectBinding;
+            expect(binding.elements).toHaveLength(1);
+
+            const outerElement = binding.elements[0];
+            expect(outerElement.key).toEqual('key1');
+            expect(outerElement.binding).toBeInstanceOf(ESObjectBinding);
+
+            const nestedBinding = outerElement.binding as ESObjectBinding;
+            expect(nestedBinding.elements).toHaveLength(2);
+
+            const firstNested = nestedBinding.elements[0];
+            expect(firstNested.key).toBeUndefined();
+            expect(firstNested.binding.toString()).toEqual('key2');
+
+            const secondNested = nestedBinding.elements[1];
+            expect(secondNested.key).toEqual('key3');
+            expect(secondNested.binding.toString()).toEqual('alias3');
+        });
+
+        it('should parse a declaration that is destructuring an object with a renamed key and a default', () =>
+        {
+            const variable = parser.parseVariable(VARIABLES.DESTRUCTURING_OBJECT_DEFAULT);
+            expect(variable.identifier).toEqual('{key1:alias1=true}');
+
+            const binding = variable.binding as ESObjectBinding;
+            expect(binding.elements).toHaveLength(1);
+
+            const element = binding.elements[0];
+            expect(element.key).toEqual('key1');
+            expect(element.binding).toBeInstanceOf(ESIdentifierBinding);
+            expect(element.binding.toString()).toEqual('alias1');
+            expect(element.initializer).toBeInstanceOf(ESExpression);
+            expect(element.initializer?.toString(false)).toEqual('true');
+        });
+
+        it('should parse a declaration that is destructuring an object with a string key', () =>
+        {
+            const variable = parser.parseVariable(VARIABLES.DESTRUCTURING_OBJECT_STRING_KEY);
+            expect(variable.identifier).toEqual("{'key-1':alias1}");
+
+            const binding = variable.binding as ESObjectBinding;
+            expect(binding.elements).toHaveLength(1);
+
+            const element = binding.elements[0];
+            expect(element.key).toEqual("'key-1'");
+            expect(element.binding.toString()).toEqual('alias1');
+        });
+
+        it('should parse a declaration that is destructuring an object with a computed key', () =>
+        {
+            const variable = parser.parseVariable(VARIABLES.DESTRUCTURING_OBJECT_COMPUTED_KEY);
+            expect(variable.identifier).toEqual('{[key1+1]:alias1=false}');
+
+            const binding = variable.binding as ESObjectBinding;
+            expect(binding.elements).toHaveLength(1);
+
+            const element = binding.elements[0];
+            expect(element.key).toEqual('[key1+1]');
+            expect(element.binding.toString()).toEqual('alias1');
+            expect(element.initializer?.toString(false)).toEqual('false');
+        });
+
+        it('should throw an error for a computed key without an alias', () =>
+        {
+            const run = () => parser.parseVariable(VARIABLES.DESTRUCTURING_OBJECT_COMPUTED_KEY_WITHOUT_ALIAS);
+
+            expect(run).toThrow(ExpectedToken);
+        });
+
+        it('should throw an error for a key in an array destructuring', () =>
+        {
+            const run = () => parser.parseVariable(VARIABLES.DESTRUCTURING_ARRAY_WITH_KEY);
+
+            expect(run).toThrow(UnexpectedToken);
         });
 
         it('should parse a declaration with a non reserved keyword as name', () =>
@@ -841,6 +949,13 @@ describe('Parser', () =>
             expect(fourthMember.binding).toBeInstanceOf(ESIdentifierBinding);
             expect(fourthMember.binding.toString()).toEqual('param4');
             expect(fourthMember.initializer).toBeUndefined();
+        });
+
+        it('should throw an error for a key in the parameters', () =>
+        {
+            const run = () => parser.parseFunction(FUNCTIONS.PARAMETER_WITH_KEY);
+
+            expect(run).toThrow(UnexpectedToken);
         });
 
         it('should parse a function with destructuring default parameters', () =>
